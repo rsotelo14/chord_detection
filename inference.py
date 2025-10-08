@@ -1,0 +1,202 @@
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
+import argparse
+from pathlib import Path
+from typing import List, Tuple
+
+import numpy as np
+import pandas as pd
+import librosa
+from tensorflow.keras.models import load_model
+
+
+# ---- Config / rutas por defecto ----
+ANALYSIS_OUT = Path("analysis_out")
+OUTPUTS_DIR = Path("outputs")
+DEFAULT_SCALER_STATS = ANALYSIS_OUT / "mlp_scaler_stats.npz"
+DEFAULT_LABELS = ANALYSIS_OUT / "mlp_label_mapping.txt"
+DEFAULT_MODEL = ANALYSIS_OUT / "baseline_mlp_model.h5"
+SR = 22050
+HOP = 512
+
+NOTE_ORDER = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"]
+
+
+def load_scaler_stats(scaler_npz_path: Path) -> Tuple[np.ndarray, np.ndarray]:
+    data = np.load(scaler_npz_path)
+    return data["mean"], data["scale"]
+
+
+def standardize_features(X: np.ndarray, mean: np.ndarray, scale: np.ndarray) -> np.ndarray:
+    # Evitar división por cero
+    safe_scale = np.where(scale == 0, 1.0, scale)
+    return (X - mean) / safe_scale
+
+
+def compute_chroma(y: np.ndarray, sr: int, hop_length: int) -> Tuple[np.ndarray, np.ndarray]:
+    y_harm = librosa.effects.harmonic(y)
+    chroma = librosa.feature.chroma_cqt(y=y_harm, sr=sr, hop_length=hop_length)
+    chroma = chroma / (np.sum(chroma, axis=0, keepdims=True) + 1e-8)
+    times = librosa.times_like(chroma, sr=sr, hop_length=hop_length)
+    return chroma, times
+
+
+def segment_beats(y: np.ndarray, sr: int) -> Tuple[np.ndarray, np.ndarray]:
+    tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
+    beat_times = librosa.frames_to_time(beats, sr=sr)
+    # Construir intervalos [t_i, t_{i+1}) y uno final hasta el fin del audio
+    if len(beat_times) == 0:
+        return np.array([0.0]), np.array([librosa.get_duration(y=y, sr=sr)])
+    starts = beat_times
+    ends = np.concatenate([beat_times[1:], [librosa.get_duration(y=y, sr=sr)]])
+    return starts, ends
+
+
+def aggregate_chroma_over_interval(chroma: np.ndarray, times: np.ndarray, t0: float, t1: float) -> np.ndarray:
+    mask = (times >= t0) & (times < t1)
+    if not np.any(mask):
+        # Si no hay frames en el intervalo, devolver vector nulo
+        return np.zeros((chroma.shape[0],), dtype=np.float32)
+    vec = np.median(chroma[:, mask], axis=1)
+    s = np.sum(vec)
+    if s > 1e-8:
+        vec = vec / s
+    return vec.astype(np.float32)
+
+
+def infer_on_audio(
+    audio_path: Path,
+    model_path: Path = DEFAULT_MODEL,
+    labels_path: Path = DEFAULT_LABELS,
+    scaler_stats_path: Path = DEFAULT_SCALER_STATS,
+    sr: int = SR,
+    hop_length: int = HOP,
+    beats_per_segment: int = 4,
+) -> pd.DataFrame:
+    # Cargar recursos
+    if not model_path.exists():
+        raise FileNotFoundError(f"Modelo no encontrado: {model_path}")
+    if not labels_path.exists():
+        raise FileNotFoundError(f"Archivo de etiquetas no encontrado: {labels_path}")
+    if not scaler_stats_path.exists():
+        raise FileNotFoundError(f"Scaler stats no encontrado: {scaler_stats_path}")
+
+    model = load_model(model_path)
+    class_names = np.loadtxt(labels_path, dtype=str)
+    mean, scale = load_scaler_stats(scaler_stats_path)
+
+    # Audio -> cromas
+    y, _sr = librosa.load(audio_path, sr=sr, mono=True)
+    chroma, times = compute_chroma(y, sr=sr, hop_length=hop_length)
+
+    # Beats -> intervalos
+    starts, ends = segment_beats(y, sr=sr)
+
+    # Agregar cromas cada N beats (por defecto 4)
+    feats = []
+    rows = []
+    n_beats = len(starts)
+    if n_beats == 0:
+        return pd.DataFrame(columns=["t_start","t_end","label_pred","p_pred"])  # vacío
+
+    i = 0
+    while i < n_beats:
+        j = min(i + beats_per_segment - 1, n_beats - 1)
+        t0 = float(starts[i])
+        t1 = float(ends[j])
+        vec = aggregate_chroma_over_interval(chroma, times, t0, t1)
+        rows.append({"t_start": t0, "t_end": t1, **{f"chroma_{n}": float(vec[k]) for k, n in enumerate(NOTE_ORDER)}})
+        feats.append(vec)
+        i += beats_per_segment
+
+    if len(feats) == 0:
+        return pd.DataFrame(columns=["t_start","t_end","label_pred","p_pred"])  # vacío
+
+    X = np.stack(feats, axis=0)
+
+    # Estandarizar con medias y std guardados (mismo orden de notas)
+    X_std = standardize_features(X, mean=mean, scale=scale)
+
+    # Inferencia
+    prob = model.predict(X_std, verbose=0)
+    y_pred_idx = np.argmax(prob, axis=1)
+    y_pred = class_names[y_pred_idx]
+    p_pred = np.max(prob, axis=1)
+
+    df_out = pd.DataFrame(rows)
+    df_out["label_pred"] = y_pred
+    df_out["p_pred"] = p_pred
+    return df_out
+
+
+def merge_consecutive_same_label(df: pd.DataFrame) -> list:
+    if df.empty:
+        return []
+    df_sorted = df.sort_values("t_start")
+    merged = []
+    cur_start = float(df_sorted.iloc[0]["t_start"]) 
+    cur_end = float(df_sorted.iloc[0]["t_end"]) 
+    cur_label = str(df_sorted.iloc[0]["label_pred"]) 
+    for _, row in df_sorted.iloc[1:].iterrows():
+        label = str(row["label_pred"]) 
+        if label == cur_label:
+            cur_end = float(row["t_end"]) 
+        else:
+            merged.append((cur_start, cur_end, cur_label))
+            cur_start = float(row["t_start"]) 
+            cur_end = float(row["t_end"]) 
+            cur_label = label
+    merged.append((cur_start, cur_end, cur_label))
+    return merged
+
+
+def save_outputs(df: pd.DataFrame, out_prefix: Path) -> None:
+    out_prefix.parent.mkdir(parents=True, exist_ok=True)
+    out_lab = out_prefix.with_suffix(".lab")
+    merged = merge_consecutive_same_label(df[["t_start","t_end","label_pred"]])
+    with open(out_lab, "w") as f:
+        for t0, t1, lab in merged:
+            f.write(f"{t0:.6f}\t{t1:.6f}\t{lab}\n")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Inferencia de acordes agrupando beats usando MLP guardado")
+    parser.add_argument("audio", type=str, help="Ruta al archivo de audio (.mp3/.wav)")
+    parser.add_argument("--model", type=str, default=str(DEFAULT_MODEL), help="Ruta al modelo .h5")
+    parser.add_argument("--labels", type=str, default=str(DEFAULT_LABELS), help="Ruta a mlp_label_mapping.txt")
+    parser.add_argument("--scaler", type=str, default=str(DEFAULT_SCALER_STATS), help="Ruta a mlp_scaler_stats.npz")
+    parser.add_argument("--sr", type=int, default=SR, help="Sample rate para carga de audio")
+    parser.add_argument("--hop", type=int, default=HOP, help="Hop length para cromas")
+    parser.add_argument("--beats-per-segment", type=int, default=4, help="Número de beats por segmento (p.ej., 4)")
+    parser.add_argument("--out", type=str, default=None, help="Prefijo de salida (sin extensión). Por defecto usa outputs/<audio_stem>")
+    args = parser.parse_args()
+
+    audio_path = Path(args.audio)
+    model_path = Path(args.model)
+    labels_path = Path(args.labels)
+    scaler_path = Path(args.scaler)
+
+    df_pred = infer_on_audio(
+        audio_path=audio_path,
+        model_path=model_path,
+        labels_path=labels_path,
+        scaler_stats_path=scaler_path,
+        sr=args.sr,
+        hop_length=args.hop,
+        beats_per_segment=args.beats_per_segment,
+    )
+
+    if args.out is None:
+        out_prefix = OUTPUTS_DIR / audio_path.stem
+    else:
+        out_prefix = Path(args.out)
+
+    save_outputs(df_pred, out_prefix=out_prefix)
+    print(f"✅ Guardado: {out_prefix.with_suffix('.lab')}")
+
+
+if __name__ == "__main__":
+    main()
+
+
