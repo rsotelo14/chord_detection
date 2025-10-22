@@ -15,14 +15,14 @@ from sklearn.utils.class_weight import compute_class_weight
 import tensorflow as tf
 from tensorflow.keras import layers, models, callbacks, optimizers
 
-CSV = Path("dataset_chords.csv")
+CSV = Path("dataset_chords_merged.csv")
 OUT = Path("analysis_out")
 OUT.mkdir(exist_ok=True)
 
 RANDOM_STATE = 42
 TEST_SIZE = 0.25
 BATCH = 64
-EPOCHS = 200
+EPOCHS = 100
 HIDDEN = 256
 HIDDEN2 = 128
 HIDDEN3 = 64
@@ -139,13 +139,34 @@ if __name__ == "__main__":
     )
     print("\n--- Classification report ---\n", report)
 
-    # Matriz de confusión
+    # Matriz de confusión (normalizada por fila = por clase verdadera)
     labels_sorted = list(class_names)  # mantener orden del encoder
     cm = confusion_matrix(le.inverse_transform(y_te), le.inverse_transform(y_pred), labels=labels_sorted)
+    
+    # Normalizar por fila (cada fila suma 100%)
+    cm_normalized = cm.astype('float') / cm.sum(axis=1, keepdims=True)
+    # Manejar división por cero (clases sin ejemplos)
+    cm_normalized = np.nan_to_num(cm_normalized)
 
     fig, ax = plt.subplots(figsize=(10, 8))
-    im = ax.imshow(cm, interpolation="nearest", cmap="Blues")
-    ax.figure.colorbar(im, ax=ax)
+    im = ax.imshow(cm_normalized, interpolation="nearest", cmap="Blues", vmin=0, vmax=1)
+    cbar = ax.figure.colorbar(im, ax=ax)
+    cbar.ax.set_ylabel('Proporción', rotation=270, labelpad=15)
+    
+    # Añadir texto en cada celda mostrando porcentaje y conteo (solo si no es 0)
+    thresh = cm_normalized.max() / 2.
+    for i in range(len(labels_sorted)):
+        for j in range(len(labels_sorted)):
+            count = cm[i, j]
+            pct = cm_normalized[i, j]
+            # Mostrar porcentaje y conteo solo si no es 0
+            if count > 0:
+                text = f'{pct:.2f}\n({count})'
+                ax.text(j, i, text,
+                       ha="center", va="center",
+                       color="white" if cm_normalized[i, j] > thresh else "black",
+                       fontsize=6)
+    
     ax.set(
         xticks=np.arange(len(labels_sorted)),
         yticks=np.arange(len(labels_sorted)),
@@ -153,7 +174,7 @@ if __name__ == "__main__":
         yticklabels=labels_sorted,
         ylabel="True label",
         xlabel="Predicted label",
-        title="Matriz de confusión — MLP (test)"
+        title="Matriz de confusión — MLP (test, normalizada por fila)"
     )
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
     plt.tight_layout()

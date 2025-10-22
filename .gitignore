@@ -2,3 +2,9 @@ env/
 The Beatles Annotations/
 __pycache__/
 test_audios/
+annotation/
+audio_mono-mic/
+web/
+dataset_chords.csv
+dataset_chords_guitarset.csv
+dataset_chords_merged.csv

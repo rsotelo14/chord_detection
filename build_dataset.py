@@ -134,8 +134,17 @@ def build_dataset_csv(csv_out="dataset_chords.csv"):
     # guardar CSV
     if rows:
         df = pd.DataFrame(rows)
+        
+        # Filtrar clase "N" (sin acorde)
+        n_before = len(df)
+        df = df[df['label'] != 'N'].copy()
+        n_after = len(df)
+        n_filtered = n_before - n_after
+        
         df.to_csv(csv_out, index=False)
         print(f"\n✅ Dataset guardado en: {csv_out}  ({len(df)} filas, {df['label'].nunique()} clases)")
+        if n_filtered > 0:
+            print(f"   🗑️  Filtrados {n_filtered} segmentos con label 'N' (sin acorde)")
     else:
         print("\n⚠️ No se generaron filas. Revisá que existan pares audio/lab consistentes.")
 

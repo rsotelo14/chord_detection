@@ -3,24 +3,46 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import argparse
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 import pandas as pd
 import librosa
-from tensorflow.keras.models import load_model
-
 
 # ---- Config / rutas por defecto ----
 ANALYSIS_OUT = Path("analysis_out")
 OUTPUTS_DIR = Path("outputs")
-DEFAULT_SCALER_STATS = ANALYSIS_OUT / "mlp_scaler_stats.npz"
-DEFAULT_LABELS = ANALYSIS_OUT / "mlp_label_mapping.txt"
-DEFAULT_MODEL = ANALYSIS_OUT / "baseline_mlp_model.h5"
+
+# Por defecto usamos regresión logística (cambiar aquí para usar MLP)
+MODEL_TYPE = "mlp"  # "logreg" o "mlp"
+
+if MODEL_TYPE == "logreg":
+    DEFAULT_MODEL = ANALYSIS_OUT / "baseline_logreg_model.pkl"
+    DEFAULT_LABELS = ANALYSIS_OUT / "logreg_label_mapping.txt"
+    DEFAULT_SCALER_STATS = None  # El pipeline de sklearn ya incluye el scaler
+else:  # mlp
+    DEFAULT_MODEL = ANALYSIS_OUT / "baseline_mlp_model.h5"
+    DEFAULT_LABELS = ANALYSIS_OUT / "mlp_label_mapping.txt"
+    DEFAULT_SCALER_STATS = ANALYSIS_OUT / "mlp_scaler_stats.npz"
+
 SR = 22050
 HOP = 512
 
 NOTE_ORDER = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"]
+
+
+def load_model_auto(model_path: Path) -> Union[object, object]:
+    """
+    Carga un modelo automáticamente detectando si es sklearn (.pkl) o keras (.h5)
+    """
+    if model_path.suffix == ".pkl":
+        import joblib
+        return joblib.load(model_path), "sklearn"
+    elif model_path.suffix == ".h5":
+        from tensorflow.keras.models import load_model as keras_load_model
+        return keras_load_model(model_path), "keras"
+    else:
+        raise ValueError(f"Formato de modelo no soportado: {model_path.suffix}")
 
 
 def load_scaler_stats(scaler_npz_path: Path) -> Tuple[np.ndarray, np.ndarray]:
@@ -79,12 +101,16 @@ def infer_on_audio(
         raise FileNotFoundError(f"Modelo no encontrado: {model_path}")
     if not labels_path.exists():
         raise FileNotFoundError(f"Archivo de etiquetas no encontrado: {labels_path}")
-    if not scaler_stats_path.exists():
-        raise FileNotFoundError(f"Scaler stats no encontrado: {scaler_stats_path}")
 
-    model = load_model(model_path)
+    # Cargar modelo (auto-detecta tipo)
+    model, model_type = load_model_auto(model_path)
     class_names = np.loadtxt(labels_path, dtype=str)
-    mean, scale = load_scaler_stats(scaler_stats_path)
+    
+    # Solo cargar scaler para modelos Keras/MLP
+    if model_type == "keras":
+        if scaler_stats_path is None or not scaler_stats_path.exists():
+            raise FileNotFoundError(f"Scaler stats no encontrado: {scaler_stats_path}")
+        mean, scale = load_scaler_stats(scaler_stats_path)
 
     # Audio -> cromas
     y, _sr = librosa.load(audio_path, sr=sr, mono=True)
@@ -115,14 +141,20 @@ def infer_on_audio(
 
     X = np.stack(feats, axis=0)
 
-    # Estandarizar con medias y std guardados (mismo orden de notas)
-    X_std = standardize_features(X, mean=mean, scale=scale)
-
-    # Inferencia
-    prob = model.predict(X_std, verbose=0)
-    y_pred_idx = np.argmax(prob, axis=1)
-    y_pred = class_names[y_pred_idx]
-    p_pred = np.max(prob, axis=1)
+    # Inferencia según tipo de modelo
+    if model_type == "sklearn":
+        # El pipeline de sklearn ya incluye el scaler
+        y_pred = model.predict(X)
+        # Para sklearn, obtener probabilidades
+        prob = model.predict_proba(X)
+        p_pred = np.max(prob, axis=1)
+    else:  # keras
+        # Estandarizar con medias y std guardados
+        X_std = standardize_features(X, mean=mean, scale=scale)
+        prob = model.predict(X_std, verbose=0)
+        y_pred_idx = np.argmax(prob, axis=1)
+        y_pred = class_names[y_pred_idx]
+        p_pred = np.max(prob, axis=1)
 
     df_out = pd.DataFrame(rows)
     df_out["label_pred"] = y_pred
