@@ -15,7 +15,7 @@ from sklearn.utils.class_weight import compute_class_weight
 import tensorflow as tf
 from tensorflow.keras import layers, models, callbacks, optimizers
 
-CSV = Path("dataset_chords_merged.csv")
+CSV = Path("dataset_chords_merged.csv")  # Volver al dataset original
 OUT = Path("analysis_out")
 OUT.mkdir(exist_ok=True)
 

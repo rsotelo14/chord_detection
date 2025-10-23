@@ -1,0 +1,18 @@
+WCSR Evaluation Summary
+============================================================
+
+System Configuration:
+  - Beats per segment: 2
+  - HMM: False
+  
+Results:
+  - Songs evaluated: 22
+  - Global WCSR (weighted): 0.6234 (62.34%)
+  - Mean WCSR: 0.6272
+  - Median WCSR: 0.6506
+  - Std Dev: 0.1204
+  
+Total Duration:
+  - Total: 3502.9s (58.4 min)
+  - Correct: 2183.7s (36.4 min)
+  - Error: 1319.2s

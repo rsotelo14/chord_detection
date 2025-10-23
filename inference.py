@@ -3,7 +3,8 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 import argparse
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -29,6 +30,77 @@ SR = 22050
 HOP = 512
 
 NOTE_ORDER = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"]
+
+# HMM por defecto
+DEFAULT_HMM = ANALYSIS_OUT / "hmm_model.pkl"
+EPSILON = 1e-10
+
+
+class ChordHMM:
+    """
+    Hidden Markov Model para transiciones de acordes.
+    Usa Viterbi para suavizar predicciones del MLP.
+    """
+    
+    def __init__(self, class_names, transition_matrix, initial_probs):
+        self.class_names = list(class_names)
+        self.n_states = len(class_names)
+        self.transition_matrix = transition_matrix
+        self.initial_probs = initial_probs
+        self.chord_to_idx = {chord: i for i, chord in enumerate(class_names)}
+    
+    def viterbi(self, emission_probs, transition_weight=1.0):
+        """
+        Algoritmo de Viterbi para encontrar la secuencia más probable.
+        
+        Args:
+            emission_probs: matriz (T, N) de probabilidades del MLP
+            transition_weight: peso de las transiciones (0.0=solo MLP, 1.0=balanceado, >1.0=favorece transiciones)
+                              Valores recomendados: 0.1-0.5 para dar más peso al audio
+        
+        Returns:
+            best_path: array de índices de acordes
+        """
+        T = len(emission_probs)
+        
+        # Log-espacio para estabilidad
+        log_emission = np.log(emission_probs + EPSILON)
+        log_transition = np.log(self.transition_matrix + EPSILON)
+        log_initial = np.log(self.initial_probs + EPSILON)
+        
+        # Aplicar peso a las transiciones
+        log_transition_weighted = log_transition * transition_weight
+        
+        # DP
+        viterbi = np.zeros((T, self.n_states))
+        backpointer = np.zeros((T, self.n_states), dtype=int)
+        
+        # Inicialización
+        viterbi[0] = log_initial + log_emission[0]
+        
+        # Recursión
+        for t in range(1, T):
+            for s in range(self.n_states):
+                trans_probs = viterbi[t-1] + log_transition_weighted[:, s]
+                backpointer[t, s] = np.argmax(trans_probs)
+                viterbi[t, s] = trans_probs[backpointer[t, s]] + log_emission[t, s]
+        
+        # Backtrack
+        best_path = np.zeros(T, dtype=int)
+        best_path[-1] = np.argmax(viterbi[-1])
+        
+        for t in range(T - 2, -1, -1):
+            best_path[t] = backpointer[t + 1, best_path[t + 1]]
+        
+        return best_path
+
+
+def load_hmm(hmm_path: Path) -> Optional[ChordHMM]:
+    """Carga el modelo HMM pre-entrenado."""
+    if not hmm_path.exists():
+        return None
+    with open(hmm_path, "rb") as f:
+        return pickle.load(f)
 
 
 def load_model_auto(model_path: Path) -> Union[object, object]:
@@ -95,6 +167,9 @@ def infer_on_audio(
     sr: int = SR,
     hop_length: int = HOP,
     beats_per_segment: int = 4,
+    use_hmm: bool = False,
+    hmm_path: Path = DEFAULT_HMM,
+    transition_weight: float = 0.3,
 ) -> pd.DataFrame:
     # Cargar recursos
     if not model_path.exists():
@@ -105,6 +180,16 @@ def infer_on_audio(
     # Cargar modelo (auto-detecta tipo)
     model, model_type = load_model_auto(model_path)
     class_names = np.loadtxt(labels_path, dtype=str)
+    
+    # Cargar HMM si está habilitado
+    hmm = None
+    if use_hmm:
+        hmm = load_hmm(hmm_path)
+        if hmm is None:
+            print(f"⚠️  HMM no encontrado en {hmm_path}, continuando sin HMM")
+            use_hmm = False
+        else:
+            print(f"✨ Usando HMM (peso transiciones={transition_weight})")
     
     # Solo cargar scaler para modelos Keras/MLP
     if model_type == "keras":
@@ -144,16 +229,27 @@ def infer_on_audio(
     # Inferencia según tipo de modelo
     if model_type == "sklearn":
         # El pipeline de sklearn ya incluye el scaler
-        y_pred = model.predict(X)
-        # Para sklearn, obtener probabilidades
         prob = model.predict_proba(X)
+        if use_hmm:
+            # Aplicar Viterbi con peso ajustable
+            best_path = hmm.viterbi(prob, transition_weight=transition_weight)
+            y_pred = class_names[best_path]
+        else:
+            y_pred = model.predict(X)
         p_pred = np.max(prob, axis=1)
     else:  # keras
         # Estandarizar con medias y std guardados
         X_std = standardize_features(X, mean=mean, scale=scale)
         prob = model.predict(X_std, verbose=0)
-        y_pred_idx = np.argmax(prob, axis=1)
-        y_pred = class_names[y_pred_idx]
+        
+        if use_hmm:
+            # Aplicar Viterbi con peso ajustable
+            best_path = hmm.viterbi(prob, transition_weight=transition_weight)
+            y_pred = class_names[best_path]
+        else:
+            y_pred_idx = np.argmax(prob, axis=1)
+            y_pred = class_names[y_pred_idx]
+        
         p_pred = np.max(prob, axis=1)
 
     df_out = pd.DataFrame(rows)
@@ -201,6 +297,9 @@ def main():
     parser.add_argument("--sr", type=int, default=SR, help="Sample rate para carga de audio")
     parser.add_argument("--hop", type=int, default=HOP, help="Hop length para cromas")
     parser.add_argument("--beats-per-segment", type=int, default=4, help="Número de beats por segmento (p.ej., 4)")
+    parser.add_argument("--use-hmm", action="store_true", help="Usar HMM para suavizar predicciones (mejora coherencia)")
+    parser.add_argument("--hmm", type=str, default=str(DEFAULT_HMM), help="Ruta al modelo HMM .pkl")
+    parser.add_argument("--transition-weight", type=float, default=0.3, help="Peso de transiciones HMM (0.0=solo audio, 1.0=balanceado, default=0.3)")
     parser.add_argument("--out", type=str, default=None, help="Prefijo de salida (sin extensión). Por defecto usa outputs/<audio_stem>")
     args = parser.parse_args()
 
@@ -208,6 +307,7 @@ def main():
     model_path = Path(args.model)
     labels_path = Path(args.labels)
     scaler_path = Path(args.scaler)
+    hmm_path = Path(args.hmm)
 
     df_pred = infer_on_audio(
         audio_path=audio_path,
@@ -217,6 +317,9 @@ def main():
         sr=args.sr,
         hop_length=args.hop,
         beats_per_segment=args.beats_per_segment,
+        use_hmm=args.use_hmm,
+        hmm_path=hmm_path,
+        transition_weight=args.transition_weight,
     )
 
     if args.out is None:

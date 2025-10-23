@@ -1,0 +1,43 @@
+Improved MLP Results - Best Architecture: baseline
+============================================================
+
+Accuracy:          0.7588
+Macro F1:          0.6363
+Balanced Accuracy: 0.6751
+
+Comparison with baseline:
+  Accuracy improvement: +0.00%
+  F1 improvement:       +0.00%
+
+Classification Report:
+              precision    recall  f1-score   support
+
+       A:maj      0.940     0.926     0.933        68
+       A:min      0.857     0.375     0.522        16
+      Ab:maj      1.000     0.444     0.615         9
+      Ab:min      0.529     0.450     0.486        20
+       B:maj      0.511     0.719     0.597        32
+       B:min      0.176     0.136     0.154        22
+      Bb:maj      0.829     0.829     0.829        41
+      Bb:min      0.500     0.600     0.545        10
+       C:maj      0.826     0.950     0.884        40
+       C:min      0.000     0.000     0.000         0
+       D:maj      0.842     0.727     0.780        22
+       D:min      0.750     0.656     0.700        32
+      Db:maj      0.833     1.000     0.909        15
+      Db:min      1.000     0.500     0.667         2
+       E:maj      0.779     0.828     0.803        64
+       E:min      0.300     0.188     0.231        16
+      Eb:maj      0.619     1.000     0.765        26
+      Eb:min      0.000     0.000     0.000        10
+       F:maj      0.933     0.862     0.896        65
+       F:min      0.462     1.000     0.632         6
+       G:maj      0.865     0.818     0.841        55
+       G:min      0.609     0.778     0.683        18
+      Gb:maj      0.960     0.923     0.941        26
+      Gb:min      0.900     0.818     0.857        11
+
+    accuracy                          0.759       626
+   macro avg      0.668     0.647     0.636       626
+weighted avg      0.757     0.759     0.748       626
+

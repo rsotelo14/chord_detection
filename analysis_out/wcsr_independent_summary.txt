@@ -1,0 +1,24 @@
+WCSR Evaluation - Independent Test Set
+============================================================
+
+Canciones evaluadas: 4 (NO usadas en entrenamiento)
+
+System Configuration:
+  - Beats per segment: 4
+  - HMM: False
+  
+Results:
+  - Global WCSR (weighted): 0.5046 (50.46%)
+  - Mean WCSR: 0.4564
+  - Median WCSR: 0.4631
+  - Std Dev: 0.1503
+  
+Total Duration:
+  - Total: 616.6s (10.3 min)
+  - Correct: 311.1s (5.2 min)
+
+Per-song results:
+  Come_Together                   WCSR=0.659
+  Please Please Me                WCSR=0.495
+  Love Me Do                      WCSR=0.431
+  Misery                          WCSR=0.240
