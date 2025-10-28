@@ -15,24 +15,31 @@ from sklearn.utils.class_weight import compute_class_weight
 import tensorflow as tf
 from tensorflow.keras import layers, models, callbacks, optimizers
 
-CSV = Path("dataset_chords_merged.csv")  # Volver al dataset original
+CSV = Path("dataset_chords.csv")  # Volver al dataset original
 OUT = Path("analysis_out")
 OUT.mkdir(exist_ok=True)
 
 RANDOM_STATE = 42
 TEST_SIZE = 0.25
 BATCH = 64
-EPOCHS = 100
-HIDDEN = 256
-HIDDEN2 = 128
+EPOCHS = 50
+HIDDEN = 128
+HIDDEN2 = 256
 HIDDEN3 = 64
 DROPOUT = 0.40
 
-NOTE_COLS = [f"chroma_{n}" for n in ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"]]
+NOTE_COLS = None  # se detectan dinámicamente desde el CSV (todas las columnas 'chroma_*')
 
 def load_data():
     df = pd.read_csv(CSV)
-    X = df[NOTE_COLS].values.astype(np.float32)
+    # seleccionar todas las cols que empiezan con 'chroma_'
+    feat_cols = [c for c in df.columns if c.startswith("chroma_")]
+    # ordenar numéricamente si son chroma_0..chroma_35
+    try:
+        feat_cols = sorted(feat_cols, key=lambda c: int(c.split("_")[1]))
+    except Exception:
+        feat_cols = sorted(feat_cols)
+    X = df[feat_cols].values.astype(np.float32)
     y = df["label"].values
     groups = df["album_track"].values
     return X, y, groups, df
@@ -52,6 +59,49 @@ def build_mlp(input_dim, num_classes):
         layers.Dropout(0.2),
 
         layers.Dense(64, kernel_regularizer=l2),
+        layers.BatchNormalization(),
+        layers.ReLU(),
+        layers.Dropout(0.2),
+
+        layers.Dense(num_classes, activation="softmax"),
+    ])
+    model.compile(
+        optimizer=optimizers.Adam(learning_rate=3e-4),
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"],
+    )
+    return model
+
+def build_bottleneck_mlp(input_dim, num_classes):
+    """Arquitectura bottleneck: comprime en el medio y expande"""
+    l2 = tf.keras.regularizers.l2(1e-4)
+    model = models.Sequential([
+        layers.Input(shape=(input_dim,)),
+        
+        # Sección 1: Compresión hacia el bottleneck
+        layers.Dense(128, kernel_regularizer=l2),
+        layers.BatchNormalization(),
+        layers.ReLU(),
+        layers.Dropout(0.2),
+
+        layers.Dense(64, kernel_regularizer=l2),
+        layers.BatchNormalization(),
+        layers.ReLU(),
+        layers.Dropout(0.2),
+
+        # BOTTLENECK: Punto más pequeño
+        layers.Dense(32, kernel_regularizer=l2),
+        layers.BatchNormalization(),
+        layers.ReLU(),
+        layers.Dropout(0.2),
+
+        # Sección 2: Expansión desde el bottleneck
+        layers.Dense(64, kernel_regularizer=l2),
+        layers.BatchNormalization(),
+        layers.ReLU(),
+        layers.Dropout(0.2),
+
+        layers.Dense(128, kernel_regularizer=l2),
         layers.BatchNormalization(),
         layers.ReLU(),
         layers.Dropout(0.2),
@@ -100,16 +150,34 @@ if __name__ == "__main__":
     cw_values = compute_class_weight(class_weight="balanced", classes=classes_present, y=y_tr_sub)
     class_weight = {int(c): float(w) for c, w in zip(classes_present, cw_values)}
 
-    # ----- modelo -----
+    # ----- modelos -----
     tf.random.set_seed(RANDOM_STATE)
-    model = build_mlp(input_dim=X_tr_sub.shape[1], num_classes=num_classes)
+    
+    # Modelo original
+    model_original = build_mlp(input_dim=X_tr_sub.shape[1], num_classes=num_classes)
+    
+    # Modelo bottleneck
+    model_bottleneck = build_bottleneck_mlp(input_dim=X_tr_sub.shape[1], num_classes=num_classes)
 
     cb = [
         callbacks.EarlyStopping(monitor="val_loss", patience=10, min_delta=1e-3, restore_best_weights=True),
         callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=5, min_lr=1e-5, verbose=1),
     ]
 
-    history = model.fit(
+    print("\n🔄 Entrenando modelo ORIGINAL...")
+    history_original = model_original.fit(
+        X_tr_sub, y_tr_sub,
+        validation_data=(X_val, y_val),
+        epochs=EPOCHS,
+        batch_size=BATCH,
+        verbose=1,
+        callbacks=cb,
+        class_weight=class_weight
+    )
+
+    print("\n🔄 Entrenando modelo BOTTLENECK...")
+    tf.random.set_seed(RANDOM_STATE)  # Reset seed para comparación justa
+    history_bottleneck = model_bottleneck.fit(
         X_tr_sub, y_tr_sub,
         validation_data=(X_val, y_val),
         epochs=EPOCHS,
@@ -120,28 +188,60 @@ if __name__ == "__main__":
     )
 
     # ----- evaluación -----
-    y_pred_prob = model.predict(X_te, verbose=0)
-    y_pred = np.argmax(y_pred_prob, axis=1)
+    print("\n📊 EVALUANDO MODELOS...")
+    
+    # Evaluar modelo original
+    y_pred_prob_orig = model_original.predict(X_te, verbose=0)
+    y_pred_orig = np.argmax(y_pred_prob_orig, axis=1)
+    
+    acc_orig = accuracy_score(y_te, y_pred_orig)
+    f1m_orig = f1_score(y_te, y_pred_orig, average="macro")
+    bacc_orig = balanced_accuracy_score(y_te, y_pred_orig)
+    
+    # Evaluar modelo bottleneck
+    y_pred_prob_bott = model_bottleneck.predict(X_te, verbose=0)
+    y_pred_bott = np.argmax(y_pred_prob_bott, axis=1)
+    
+    acc_bott = accuracy_score(y_te, y_pred_bott)
+    f1m_bott = f1_score(y_te, y_pred_bott, average="macro")
+    bacc_bott = balanced_accuracy_score(y_te, y_pred_bott)
 
-    acc = accuracy_score(y_te, y_pred)
-    f1m = f1_score(y_te, y_pred, average="macro")
-    bacc = balanced_accuracy_score(y_te, y_pred)
+    print("\n" + "="*60)
+    print("📊 COMPARACIÓN DE MODELOS")
+    print("="*60)
+    print(f"{'Métrica':<20} {'Original':<12} {'Bottleneck':<12} {'Diferencia':<12}")
+    print("-"*60)
+    print(f"{'Accuracy':<20} {acc_orig:.3f}        {acc_bott:.3f}        {acc_bott-acc_orig:+.3f}")
+    print(f"{'Macro F1':<20} {f1m_orig:.3f}        {f1m_bott:.3f}        {f1m_bott-f1m_orig:+.3f}")
+    print(f"{'Balanced Acc':<20} {bacc_orig:.3f}        {bacc_bott:.3f}        {bacc_bott-bacc_orig:+.3f}")
+    print("="*60)
+    
+    # Determinar mejor modelo
+    if acc_bott > acc_orig:
+        print("🏆 BOTTLENECK es MEJOR!")
+        best_model = model_bottleneck
+        best_pred = y_pred_bott
+        best_pred_prob = y_pred_prob_bott
+        best_history = history_bottleneck
+        model_name = "bottleneck"
+    else:
+        print("🏆 ORIGINAL es MEJOR!")
+        best_model = model_original
+        best_pred = y_pred_orig
+        best_pred_prob = y_pred_prob_orig
+        best_history = history_original
+        model_name = "original"
 
-    print("\n--- Métricas MLP (test, split por canción) ---")
-    print(f"Accuracy:          {acc:.3f}")
-    print(f"Macro F1:          {f1m:.3f}")
-    print(f"Balanced Accuracy: {bacc:.3f}")
-
-    # Reporte por clase (con nombres originales)
-    report = classification_report(le.inverse_transform(y_te), le.inverse_transform(y_pred), digits=3)
-    (OUT / "baseline_mlp_report.txt").write_text(
-        f"Accuracy: {acc:.4f}\nMacro F1: {f1m:.4f}\nBalanced Acc: {bacc:.4f}\n\n{report}"
+    # Reporte por clase del mejor modelo
+    report = classification_report(le.inverse_transform(y_te), le.inverse_transform(best_pred), digits=3)
+    (OUT / f"best_model_report_{model_name}.txt").write_text(
+        f"Accuracy: {acc_bott if model_name=='bottleneck' else acc_orig:.4f}\nMacro F1: {f1m_bott if model_name=='bottleneck' else f1m_orig:.4f}\nBalanced Acc: {bacc_bott if model_name=='bottleneck' else bacc_orig:.4f}\n\n{report}"
     )
-    print("\n--- Classification report ---\n", report)
+    print(f"\n--- Classification report ({model_name.upper()}) ---\n", report)
 
     # Matriz de confusión (normalizada por fila = por clase verdadera)
     labels_sorted = list(class_names)  # mantener orden del encoder
-    cm = confusion_matrix(le.inverse_transform(y_te), le.inverse_transform(y_pred), labels=labels_sorted)
+    cm = confusion_matrix(le.inverse_transform(y_te), le.inverse_transform(best_pred), labels=labels_sorted)
     
     # Normalizar por fila (cada fila suma 100%)
     cm_normalized = cm.astype('float') / cm.sum(axis=1, keepdims=True)
@@ -174,7 +274,7 @@ if __name__ == "__main__":
         yticklabels=labels_sorted,
         ylabel="True label",
         xlabel="Predicted label",
-        title="Matriz de confusión — MLP (test, normalizada por fila)"
+        title=f"Matriz de confusión — {model_name.upper()} MLP (test, normalizada por fila)"
     )
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
     plt.tight_layout()
@@ -183,28 +283,28 @@ if __name__ == "__main__":
 
     # Curvas de entrenamiento (loss)
     plt.figure(figsize=(7,4))
-    plt.plot(history.history.get("loss", []), label="train")
-    plt.plot(history.history.get("val_loss", []), label="val")
+    plt.plot(best_history.history.get("loss", []), label="train")
+    plt.plot(best_history.history.get("val_loss", []), label="val")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
-    plt.title("MLP loss por época")
+    plt.title(f"{model_name.upper()} MLP loss por época")
     plt.legend()
     plt.tight_layout()
     plt.savefig(OUT / "baseline_mlp_loss.png", dpi=150)
     plt.close()
 
-    # Guardar predicciones
+    # Guardar predicciones del mejor modelo
     pred_df = pd.DataFrame({
         "album_track": df.loc[te_idx, "album_track"].values,
         "t_start": df.loc[te_idx, "t_start"].values,
         "t_end": df.loc[te_idx, "t_end"].values,
         "label_true": le.inverse_transform(y_te),
-        "label_pred": le.inverse_transform(y_pred),
-        "p_pred": np.max(y_pred_prob, axis=1),
+        "label_pred": le.inverse_transform(best_pred),
+        "p_pred": np.max(best_pred_prob, axis=1),
     })
     pred_df.to_csv(OUT / "baseline_mlp_predictions.csv", index=False)
 
-    # Guardar el modelo (opcional)
-    model.save(OUT / "baseline_mlp_model.h5")
+    # Guardar el mejor modelo
+    best_model.save(OUT / "baseline_mlp_model.h5")
 
     print(f"\n✅ Resultados guardados en: {OUT.resolve()}")

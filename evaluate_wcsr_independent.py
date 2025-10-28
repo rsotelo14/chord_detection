@@ -25,7 +25,7 @@ OUT = Path("analysis_out")
 
 # Mapeo manual de canciones descargadas a sus archivos .lab
 SONG_MAPPINGS = {
-    "Come_Together.mp3": "11_-_Abbey_Road/01_-_Come_Together.lab",
+    "For you blue.mp3": "12_-_Let_It_Be/11_-_For_You_Blue.lab",
     "Love Me Do.mp3": "01_-_Please_Please_Me/08_-_Love_Me_Do.lab",
     "Misery.mp3": "01_-_Please_Please_Me/02_-_Misery.lab",
     "Please Please Me.mp3": "01_-_Please_Please_Me/07_-_Please_Please_Me.lab",
@@ -102,7 +102,8 @@ def evaluate_independent_set():
             df_pred = infer_on_audio(
                 audio_path=audio_file,
                 beats_per_segment=4,
-                use_hmm=False
+                use_hmm=True,
+                transition_weight=0.3
             )
             
             # 2. Merge y convertir a lista

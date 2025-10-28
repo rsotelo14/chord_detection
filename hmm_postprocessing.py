@@ -283,11 +283,14 @@ if __name__ == "__main__":
     # Guardar visualización de matriz de transición
     hmm.save_transition_matrix(OUT / "hmm_transition_matrix.png")
     
-    # Guardar modelo HMM para usar en inferencia
-    import pickle
-    with open(OUT / "hmm_model.pkl", "wb") as f:
-        pickle.dump(hmm, f)
-    print(f"💾 Modelo HMM guardado en: {OUT / 'hmm_model.pkl'}")
+    # Guardar modelo HMM para usar en inferencia (como matrices numpy)
+    np.savez(
+        OUT / "hmm_model.npz",
+        transition_matrix=hmm.transition_matrix,
+        initial_probs=hmm.initial_probs,
+        class_names=hmm.class_names
+    )
+    print(f"💾 Modelo HMM guardado en: {OUT / 'hmm_model.npz'}")
     
     # ----- Cargar predicciones del MLP baseline -----
     print("\n🤖 Cargando predicciones del MLP baseline...")

@@ -1,0 +1,54 @@
+[
+  {
+    "timestamp": "2025-10-24T19:09:23.478256",
+    "experiment_name": "MLP Original (menos datos)",
+    "metrics": {
+      "accuracy": 0.7316,
+      "macro_f1": 0.6185,
+      "balanced_acc": 0.6659,
+      "wcsr_independent": 0.5046
+    },
+    "wcsr_by_song": {},
+    "notes": "Baseline inicial con dataset original",
+    "config": {}
+  },
+  {
+    "timestamp": "2025-10-24T19:09:25.577522",
+    "experiment_name": "MLP Mejorado (m\u00e1s datos)",
+    "metrics": {
+      "accuracy": 0.697,
+      "macro_f1": 0.519,
+      "balanced_acc": 0.635,
+      "wcsr_independent": 0.5997
+    },
+    "wcsr_by_song": {},
+    "notes": "Dataset ampliado con m\u00e1s canciones Beatles",
+    "config": {}
+  },
+  {
+    "timestamp": "2025-10-24T19:09:27.692593",
+    "experiment_name": "MLP + HMM",
+    "metrics": {
+      "accuracy": 0.697,
+      "macro_f1": 0.519,
+      "balanced_acc": 0.635,
+      "wcsr_independent": 0.6181
+    },
+    "wcsr_by_song": {},
+    "notes": "MLP mejorado + HMM post-processing (transition_weight=0.3)",
+    "config": {}
+  },
+  {
+    "timestamp": "2025-10-24T19:09:30.064260",
+    "experiment_name": "MLP Bottleneck",
+    "metrics": {
+      "accuracy": 0.656,
+      "macro_f1": 0.466,
+      "balanced_acc": 0.553,
+      "wcsr_independent": null
+    },
+    "wcsr_by_song": {},
+    "notes": "Arquitectura bottleneck (12\u2192128\u219264\u219232\u219264\u2192128\u219224) - Empeor\u00f3",
+    "config": {}
+  }
+]

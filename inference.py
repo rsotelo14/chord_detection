@@ -32,7 +32,7 @@ HOP = 512
 NOTE_ORDER = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"]
 
 # HMM por defecto
-DEFAULT_HMM = ANALYSIS_OUT / "hmm_model.pkl"
+DEFAULT_HMM = ANALYSIS_OUT / "hmm_model.npz"
 EPSILON = 1e-10
 
 
@@ -96,11 +96,20 @@ class ChordHMM:
 
 
 def load_hmm(hmm_path: Path) -> Optional[ChordHMM]:
-    """Carga el modelo HMM pre-entrenado."""
+    """Carga el modelo HMM pre-entrenado desde archivo npz."""
     if not hmm_path.exists():
         return None
-    with open(hmm_path, "rb") as f:
-        return pickle.load(f)
+    
+    # Cargar matrices desde npz
+    data = np.load(hmm_path, allow_pickle=True)
+    class_names = data['class_names']
+    transition_matrix = data['transition_matrix']
+    initial_probs = data['initial_probs']
+    
+    # Crear objeto HMM con las matrices cargadas
+    hmm = ChordHMM(class_names, transition_matrix, initial_probs)
+    
+    return hmm
 
 
 def load_model_auto(model_path: Path) -> Union[object, object]:
