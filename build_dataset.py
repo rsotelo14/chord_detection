@@ -13,9 +13,8 @@ HOP = 512
 NOTES = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"]
 ENH = {"C#":"Db","D#":"Eb","F#":"Gb","G#":"Ab","A#":"Bb"}
 
-# Para 36 bins, dividimos cada nota en 3 sub-bins
-# Generamos nombres como C_0, C_1, C_2, Db_0, Db_1, Db_2, etc.
-CHROMA_BINS = [f"{note}_{i}" for note in NOTES for i in range(3)]
+# Usamos 12 cromas estándar (una por nota)
+# Nombres de columnas: chroma_C, chroma_Db, chroma_D, etc.
 
 # ---- Normalización de etiquetas ----
 def norm_label(lab: str) -> str:
@@ -56,14 +55,14 @@ def load_chords_lab(path_lab):
     rows.sort(key=lambda x: x[0])
     return rows  # [(t0, t1, label), ...]
 
-# ---- Audio + features (croma "sano") ----
+# ---- Audio + features (croma estándar 12 bins) ----
 def compute_chroma_dense(y, sr=SR, hop_length=HOP):
     y_harm = librosa.effects.harmonic(y)
-    # Usar 36 bins de chroma en lugar de 12
-    chroma = librosa.feature.chroma_cqt(y=y_harm, sr=sr, hop_length=hop_length, n_chroma=36)
+    # Usar 12 bins de chroma estándar (una por nota)
+    chroma = librosa.feature.chroma_cqt(y=y_harm, sr=sr, hop_length=hop_length, n_chroma=12)
     chroma = chroma / (np.sum(chroma, axis=0, keepdims=True) + 1e-8)  # normalización por columna
     times = librosa.times_like(chroma, sr=sr, hop_length=hop_length)
-    return chroma, times  # (36, T), (T,)
+    return chroma, times  # (12, T), (T,)
 
 # ---- Agregación por intervalo de acorde ----
 def aggregate_chroma_per_chord(chroma, times_frame, chord_intervals, min_dur=0.25):
@@ -81,7 +80,7 @@ def aggregate_chroma_per_chord(chroma, times_frame, chord_intervals, min_dur=0.2
         X.append(vec)
         y.append(norm_label(lab))     # etiquetas ya normalizadas
         intervals.append((t0, t1))    # timestamps del acorde
-    X = np.stack(X) if X else np.zeros((0,36))
+    X = np.stack(X) if X else np.zeros((0,12))
     return X, y, intervals
 
 # --------- GENERADOR DE DATASET (.csv) ----------
@@ -124,9 +123,9 @@ def build_dataset_csv(csv_out="dataset_chords.csv"):
                     "t_end": t1,
                     "label": lab,
                 }
-                # agregar 36 columnas de cromas (chroma_0 ... chroma_35)
-                for i in range(len(vec)):
-                    row[f"chroma_{i}"] = float(vec[i])
+                # agregar 12 columnas de cromas con nombres de notas (chroma_C, chroma_Db, etc.)
+                for i, note in enumerate(NOTES):
+                    row[f"chroma_{note}"] = float(vec[i])
                 rows.append(row)
 
             n_ok += 1

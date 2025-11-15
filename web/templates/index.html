@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detector de Acordes - Chord Detection</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎸 Detector de Acordes</h1>
+            <p class="subtitle">Sube una canción y descubre sus acordes en tiempo real</p>
+        </header>
+
+        <div class="upload-section" id="uploadSection">
+            <div class="upload-area" id="uploadArea">
+                <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <p class="upload-text">Arrastra un archivo de audio aquí o haz clic para seleccionar</p>
+                <p class="upload-hint">Formatos soportados: MP3, WAV, OGG, M4A, FLAC (máx. 50MB)</p>
+                <input type="file" id="audioInput" accept=".mp3,.wav,.ogg,.m4a,.flac" hidden>
+            </div>
+        </div>
+
+        <div class="loading" id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Procesando audio y detectando acordes...</p>
+            <p class="loading-hint">Esto puede tomar algunos segundos</p>
+        </div>
+
+        <div class="player-section" id="playerSection" style="display: none;">
+            <div class="audio-player">
+                <audio id="audioPlayer" controls></audio>
+            </div>
+
+            <div class="chords-display">
+                <div class="current-chord" id="currentChord">
+                    <span class="chord-label">Acorde actual:</span>
+                    <span class="chord-value" id="chordValue">-</span>
+                </div>
+                
+                <div class="timeline" id="timeline">
+                    <!-- Los acordes se insertarán aquí dinámicamente -->
+                </div>
+            </div>
+
+            <button class="reset-btn" id="resetBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="1 4 1 10 7 10"></polyline>
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                </svg>
+                Cargar otra canción
+            </button>
+        </div>
+
+        <div class="error-message" id="errorMessage" style="display: none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <p id="errorText"></p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
+
+
+
+

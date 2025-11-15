@@ -5,6 +5,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import json
 import matplotlib.pyplot as plt
 
 from sklearn.model_selection import GroupShuffleSplit
@@ -16,13 +17,14 @@ import tensorflow as tf
 from tensorflow.keras import layers, models, callbacks, optimizers
 
 CSV = Path("dataset_chords.csv")  # Volver al dataset original
+SPLIT_JSON = Path("train_test_split.json")
 OUT = Path("analysis_out")
 OUT.mkdir(exist_ok=True)
 
 RANDOM_STATE = 42
 TEST_SIZE = 0.25
 BATCH = 64
-EPOCHS = 50
+EPOCHS = 100
 HIDDEN = 128
 HIDDEN2 = 256
 HIDDEN3 = 64
@@ -44,9 +46,45 @@ def load_data():
     groups = df["album_track"].values
     return X, y, groups, df
 
-def train_test_split_groups(X, y, groups):
-    gss = GroupShuffleSplit(n_splits=1, test_size=TEST_SIZE, random_state=RANDOM_STATE)
-    train_idx, test_idx = next(gss.split(X, y, groups=groups))
+def load_split_from_json(json_path=SPLIT_JSON):
+    """Carga el split train/test desde train_test_split.json"""
+    with open(json_path, 'r') as f:
+        data = json.load(f)
+    train_songs = set(data["train_songs"])
+    test_songs = set(data["test_songs"])
+    return train_songs, test_songs
+
+def train_test_split_groups(X, y, groups, json_path=SPLIT_JSON):
+    """
+    Divide los datos en train/test usando las canciones definidas en train_test_split.json.
+    Retorna (X_train, X_test, y_train, y_test, train_idx, test_idx).
+    """
+    train_songs, test_songs = load_split_from_json(json_path)
+    
+    # Convertir groups a array de strings si no lo es
+    groups_str = np.array([str(g) for g in groups])
+    
+    # Filtrar índices según si la canción está en train_songs o test_songs
+    train_mask = np.array([g in train_songs for g in groups_str])
+    test_mask = np.array([g in test_songs for g in groups_str])
+    
+    train_idx = np.where(train_mask)[0]
+    test_idx = np.where(test_mask)[0]
+    
+    # Verificar que no haya canciones que no estén en ninguno de los dos sets
+    unknown_mask = ~(train_mask | test_mask)
+    if unknown_mask.any():
+        unknown_songs = set(groups_str[unknown_mask])
+        print(f"⚠️  Advertencia: {len(unknown_songs)} canciones no están en train ni test:")
+        for song in sorted(unknown_songs)[:10]:  # Mostrar solo las primeras 10
+            print(f"    - {song}")
+        if len(unknown_songs) > 10:
+            print(f"    ... y {len(unknown_songs) - 10} más")
+    
+    print(f"\n📊 Split desde {json_path.name}:")
+    print(f"   Train: {len(train_idx)} muestras ({len(set(groups_str[train_idx]))} canciones)")
+    print(f"   Test:  {len(test_idx)} muestras ({len(set(groups_str[test_idx]))} canciones)")
+    
     return (X[train_idx], X[test_idx], y[train_idx], y[test_idx], train_idx, test_idx)
 
 def build_mlp(input_dim, num_classes):
@@ -58,7 +96,7 @@ def build_mlp(input_dim, num_classes):
         layers.ReLU(),
         layers.Dropout(0.2),
 
-        layers.Dense(64, kernel_regularizer=l2),
+        layers.Dense(128, kernel_regularizer=l2),
         layers.BatchNormalization(),
         layers.ReLU(),
         layers.Dropout(0.2),

@@ -1,0 +1,30 @@
+WCSR Evaluation Summary - Frames Model (TRAIN Split)
+======================================================================
+
+Dataset Information:
+  - Model: DNN Frames (bottleneck)
+  - Split: TRAIN (75% of songs)
+  - Songs evaluated: 119
+
+Statistics:
+  - Mean WCSR:     0.7908 (79.08%)
+  - Median WCSR:   0.8213 (82.13%)
+  - Std Dev:       0.1237
+  - Min WCSR:      0.1212 (12.12%)
+  - Max WCSR:      0.9541 (95.41%)
+
+Top 5 Best Performances:
+  1. 12_-_Let_It_Be/03_-_Across_the_Universe             WCSR=0.9541 (95.41%)
+  2. 08_-_Sgt._Pepper's_Lonely_Hearts_Club_Band/12_-_Sgt._Pepper's_Lonely_Hearts_Club_Band_(Reprise)  WCSR=0.9404 (94.04%)
+  3. 07_-_Revolver/07_-_She_Said_She_Said                WCSR=0.9317 (93.17%)
+  4. 07_-_Revolver/10_-_For_No_One                       WCSR=0.9299 (92.99%)
+  5. 10CD1_-_The_Beatles/CD1_-_04_-_Ob-La-Di,_Ob-La-Da   WCSR=0.9256 (92.56%)
+
+Top 5 Worst Performances:
+  1. 10CD1_-_The_Beatles/CD1_-_05_-_Wild_Honey_Pie       WCSR=0.5204 (52.04%)
+  2. 11_-_Abbey_Road/16_-_The_End                        WCSR=0.4866 (48.66%)
+  3. 08_-_Sgt._Pepper's_Lonely_Hearts_Club_Band/10_-_Lovely_Rita  WCSR=0.4851 (48.51%)
+  4. 08_-_Sgt._Pepper's_Lonely_Hearts_Club_Band/05_-_Fixing_A_Hole  WCSR=0.2793 (27.93%)
+  5. 07_-_Revolver/04_-_Love_You_To                      WCSR=0.1212 (12.12%)
+
+======================================================================

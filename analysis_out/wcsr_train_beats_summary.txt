@@ -1,0 +1,35 @@
+============================================================
+ESTADÍSTICAS WCSR (Train Beats)
+============================================================
+
+Número de canciones: 9
+
+--- Estadísticas descriptivas ---
+  Media:              0.5660
+  Mediana:            0.5360
+  Desviación estándar: 0.1412
+  Mínimo:             0.4070
+  Máximo:             0.8742
+
+--- Cuartiles ---
+  Q1 (25%):           0.4554
+  Q2 (50% - Mediana): 0.5360
+  Q3 (75%):           0.6210
+  IQR (Q3 - Q1):      0.1655
+
+--- Rango ---
+  Rango (Max - Min):  0.4671
+
+--- Mejores 3 canciones ---
+  01_-_Please_Please_Me/09_-_P._S._I_Love_You        WCSR: 0.8742
+  01_-_Please_Please_Me/12_-_A_Taste_Of_Honey        WCSR: 0.6886
+  01_-_Please_Please_Me/06_-_Ask_Me_Why              WCSR: 0.6210
+
+--- Peores 3 canciones ---
+  01_-_Please_Please_Me/08_-_Love_Me_Do              WCSR: 0.4070
+  01_-_Please_Please_Me/04_-_Chains                  WCSR: 0.4080
+  01_-_Please_Please_Me/05_-_Boys                    WCSR: 0.4554
+
+--- Estadísticas adicionales ---
+  Suma total WCSR:    5.0939
+  Coeficiente de variación: 0.2494

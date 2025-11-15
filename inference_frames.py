@@ -95,7 +95,72 @@ def merge_consecutive_labels(times, labels):
     intervals.append((t0, t1, label0))
     return intervals
 
-def infer_on_audio(audio_path, pca_path, scaler_path, model_path, labels_txt, use_hmm=True):
+def compute_beat_intervals(y, sr, frame_times, frame_labels, classes, group_size=1):
+    """Crea intervalos a nivel beat usando majority voting de labels por frame.
+
+    Si no se detectan beats suficientes, devuelve None para indicar fallback.
+    """
+    # Detectar beats en frames de la misma rejilla de hop para consistencia
+    tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, hop_length=HOP)
+    if beat_frames is None or len(beat_frames) < 2:
+        return None
+
+    beat_times = librosa.frames_to_time(beat_frames, sr=sr, hop_length=HOP)
+    audio_end = len(y) / sr
+
+    # Asegurar cubrir [0, audio_end]
+    bt = beat_times
+    if bt[0] > 0.0:
+        bt = np.concatenate([[0.0], bt])
+    if bt[-1] < audio_end:
+        bt = np.concatenate([bt, [audio_end]])
+
+    # Mapear labels a índices para votar
+    class_to_idx = {c: i for i, c in enumerate(classes)}
+    label_indices = np.array([class_to_idx.get(l, -1) for l in frame_labels], dtype=np.int32)
+
+    # Asegurar tamaño de grupo válido
+    if group_size is None or group_size < 1:
+        group_size = 1
+
+    intervals = []
+    prev_idx = None
+    # Iterar en grupos de beats consecutivos
+    for i in range(0, len(bt) - 1, group_size):
+        t0 = bt[i]
+        t1 = bt[min(i + group_size, len(bt) - 1)]
+        mask = (frame_times >= t0) & (frame_times < t1)
+        inds = np.where(mask)[0]
+        if inds.size == 0:
+            # Si no hay frames dentro del beat, extender el anterior si existe
+            if intervals:
+                # Extender último segmento hasta t1
+                last_t0, _, last_lab = intervals[-1]
+                intervals[-1] = (last_t0, t1, last_lab)
+            else:
+                # Crear silencio/None; lo omitimos
+                pass
+            continue
+        vote_indices = label_indices[inds]
+        vote_indices = vote_indices[vote_indices >= 0]
+        if vote_indices.size == 0:
+            # Ningún índice válido; omitir
+            continue
+        counts = np.bincount(vote_indices, minlength=len(classes))
+        winner_idx = int(np.argmax(counts))
+        winner_lab = classes[winner_idx]
+
+        if intervals and winner_idx == prev_idx:
+            # Unir con el anterior
+            last_t0, _, last_lab = intervals[-1]
+            intervals[-1] = (last_t0, t1, last_lab)
+        else:
+            intervals.append((t0, t1, winner_lab))
+            prev_idx = winner_idx
+
+    return intervals
+
+def infer_on_audio(audio_path, pca_path, scaler_path, model_path, labels_txt, use_hmm=True, beat_sync=False, beat_group=1):
     """
     Realiza inferencia sobre un archivo de audio.
     
@@ -134,8 +199,15 @@ def infer_on_audio(audio_path, pca_path, scaler_path, model_path, labels_txt, us
     else:
         labels_est = classes[np.argmax(P, axis=1)]
 
-    # 7) Fusionar intervalos consecutivos
-    intervals = merge_consecutive_labels(times, labels_est)
+    # 7) Generar intervalos
+    if beat_sync:
+        beat_intervals = compute_beat_intervals(y, SR, times, labels_est, classes, group_size=beat_group)
+        if beat_intervals is not None and len(beat_intervals) > 0:
+            intervals = beat_intervals
+        else:
+            intervals = merge_consecutive_labels(times, labels_est)
+    else:
+        intervals = merge_consecutive_labels(times, labels_est)
     
     return times, labels_est, intervals
 
@@ -147,25 +219,42 @@ def save_lab_file(intervals, output_path):
 
 if __name__ == "__main__":
     import sys
-    
+
     # Rutas de archivos del modelo
     PCA = Path("pca.joblib")
     SCAL = Path("scaler.joblib")
     MODEL = Path("analysis_out_frames/dnn_bottleneck.h5")
     MAP = Path("analysis_out_frames/label_mapping.txt")
-    
+
     if len(sys.argv) > 1:
         # Modo comando: inferir en audio proporcionado
-        audio_path = Path(sys.argv[1])
+        import argparse
+        parser = argparse.ArgumentParser()
+        parser.add_argument('audio_path', type=str)
+        parser.add_argument('--smooth', action='store_true', help='Usar HMM para suavizar predicciones')
+        parser.add_argument('--beat-sync', action='store_true', help='Alinear a beats y votar mayoritario por beat/grupo')
+        parser.add_argument('--beat-group', type=int, default=2, help='Cantidad de beats por voto (default: 4)')
+        args = parser.parse_args()
+
+        audio_path = Path(args.audio_path)
+        use_hmm = args.smooth if args.smooth else True  # HMM activado por defecto
+        use_beat_sync = bool(args.beat_sync)
+        beat_group = int(args.beat_group)
+
         output_dir = Path("outputs")
         output_dir.mkdir(exist_ok=True)
-        
+
         print(f"Inferencia en: {audio_path}")
-        times, labels, intervals = infer_on_audio(audio_path, PCA, SCAL, MODEL, MAP, use_hmm=True)
-        
+        times, labels, intervals = infer_on_audio(
+            audio_path, PCA, SCAL, MODEL, MAP,
+            use_hmm=use_hmm,
+            beat_sync=use_beat_sync,
+            beat_group=beat_group
+        )
+
         output_file = output_dir / f"{audio_path.stem}_predicted.lab"
         save_lab_file(intervals, output_file)
-        
+
         print(f"✅ Archivo .lab guardado en: {output_file}")
     else:
         # Ejemplo de uso por defecto

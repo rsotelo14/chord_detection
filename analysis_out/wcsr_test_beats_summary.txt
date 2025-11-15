@@ -1,0 +1,35 @@
+============================================================
+ESTADÍSTICAS WCSR (Test Beats)
+============================================================
+
+Número de canciones: 47
+
+--- Estadísticas descriptivas ---
+  Media:              0.5970
+  Mediana:            0.6197
+  Desviación estándar: 0.1528
+  Mínimo:             0.0636
+  Máximo:             0.8135
+
+--- Cuartiles ---
+  Q1 (25%):           0.5094
+  Q2 (50% - Mediana): 0.6197
+  Q3 (75%):           0.7276
+  IQR (Q3 - Q1):      0.2181
+
+--- Rango ---
+  Rango (Max - Min):  0.7499
+
+--- Mejores 3 canciones ---
+  03_-_A_Hard_Day's_Night/09_-_I'll_Cry_Instead      WCSR: 0.8135
+  05_-_Help!/12_-_I've_Just_Seen_a_Face              WCSR: 0.8080
+  04_-_Beatles_for_Sale/13_-_What_You're_Doing       WCSR: 0.7990
+
+--- Peores 3 canciones ---
+  08_-_Sgt._Pepper's_Lonely_Hearts_Club_Band/10_-_Lovely_Rita WCSR: 0.0636
+  11_-_Abbey_Road/01_-_Come_Together                 WCSR: 0.2717
+  01_-_Please_Please_Me/11_-_Do_You_Want_To_Know_A_Secret WCSR: 0.3647
+
+--- Estadísticas adicionales ---
+  Suma total WCSR:    28.0585
+  Coeficiente de variación: 0.2560

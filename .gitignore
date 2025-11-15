@@ -4,7 +4,16 @@ __pycache__/
 test_audios/
 annotation/
 audio_mono-mic/
-web/
 dataset_chords.csv
 dataset_chords_guitarset.csv
 dataset_chords_merged.csv
+.cursor/
+# Carpetas de salida (se crean automáticamente)
+# Usada por web app y scripts de inferencia
+outputs/
+# Resultados de evaluación test (frames)
+outputs_test/
+# Resultados de evaluación test (frames con beat-sync)
+outputs_test_beatsync/
+# Resultados de evaluación train (frames con beat-sync)
+outputs_train_beatsync/

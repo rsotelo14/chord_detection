@@ -6,6 +6,7 @@ import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import joblib
+import matplotlib.pyplot as plt
 
 # ---- Config ----
 SR = 11025                   # paper
@@ -20,6 +21,7 @@ MIN_FRAME_DUR = HOP / SR     # ~0.046 s
 BASE = Path("The Beatles Annotations")
 AUDIO_ROOT = BASE / "audio" / "The Beatles"
 LAB_ROOT   = BASE / "chordlab" / "The Beatles"
+OUT_FRAMES = Path("analysis_out_frames")
 
 NOTES = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"]
 ENH = {"C#":"Db","D#":"Eb","F#":"Gb","G#":"Ab","A#":"Bb"}
@@ -185,6 +187,28 @@ def build_frame_dataset(csv_out="frames_dataset.csv",
     print(f"\n✅ frames CSV: {csv_out} ({len(df)} filas)")
     print(f"✅ frames NPZ:  {npz_out}  X.shape={X_all.shape}")
     print("   (input_dim = (2*ctx+1)*PCA_dims)")
+    
+    # -------- 4) Class balance (frames) -> CSV + Plot
+    try:
+        OUT_FRAMES.mkdir(parents=True, exist_ok=True)
+        counts = pd.Series(y_all).value_counts().sort_values(ascending=False)
+        counts_path_csv = OUT_FRAMES / "class_balance_counts_frames.csv"
+        counts.to_frame("count").to_csv(counts_path_csv)
+
+        plt.figure(figsize=(12, 6))
+        counts.plot(kind="bar", color="#4C78A8")
+        plt.title("Frame-level class counts")
+        plt.ylabel("Num frames")
+        plt.xlabel("Chord class")
+        plt.xticks(rotation=45, ha="right")
+        plt.tight_layout()
+        counts_path_png = OUT_FRAMES / "class_balance_counts_frames.png"
+        plt.savefig(counts_path_png, dpi=150)
+        plt.close()
+        print(f"✅ class balance guardado: {counts_path_csv}")
+        print(f"✅ class balance plot:     {counts_path_png}")
+    except Exception as e:
+        print("⚠️ No se pudo generar el class balance:", e)
     
 if __name__ == "__main__":
     build_frame_dataset()
