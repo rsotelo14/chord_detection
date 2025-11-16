@@ -17,3 +17,5 @@ outputs_test/
 outputs_test_beatsync/
 # Resultados de evaluación train (frames con beat-sync)
 outputs_train_beatsync/
+# Large dataset files
+frames_dataset.npz
