@@ -1,7 +1,8 @@
 # Configuración de Gunicorn para producción
 
 # Dirección y puerto donde escuchará Gunicorn
-bind = "127.0.0.1:5000"
+# 0.0.0.0 permite conexiones desde cualquier IP (necesario para acceso externo)
+bind = "0.0.0.0:5000"
 
 # Número de workers (procesos)
 # Regla general: (2 x CPU cores) + 1
