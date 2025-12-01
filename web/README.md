@@ -82,6 +82,24 @@ La aplicación requiere autenticación para usar el detector de acordes:
 - Formatos soportados: MP3, WAV, OGG, M4A, FLAC
 - Timeout de procesamiento: 5 minutos
 
+## Despliegue en EC2
+
+Para desplegar la aplicación en AWS EC2, consulta la guía completa:
+
+📖 **[DEPLOY_EC2.md](DEPLOY_EC2.md)** - Guía paso a paso para desplegar en EC2
+
+### Resumen Rápido:
+
+1. **Crear instancia EC2** (Amazon Linux o Ubuntu)
+2. **Conectarse por SSH**
+3. **Clonar repositorio**: `git clone https://github.com/rsotelo14/chord_detection.git`
+4. **Ejecutar script de despliegue**: `cd chord_detection/web && ./deploy.sh`
+5. **Configurar `.env`** con tus credenciales
+6. **Ejecutar con Gunicorn**: `gunicorn -c gunicorn_config.py app:app`
+7. **Configurar Security Group** para permitir tráfico HTTP (puerto 80)
+
+Para más detalles y opciones avanzadas (Nginx, SSL, systemd), consulta [DEPLOY_EC2.md](DEPLOY_EC2.md).
+
 
 
 

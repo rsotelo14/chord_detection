@@ -445,7 +445,10 @@ def serve_audio(filename):
     return jsonify({'error': 'Archivo no encontrado'}), 404
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # En producción, usar Gunicorn en lugar de app.run()
+    # Para desarrollo local, puedes usar: python app.py
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(debug=debug_mode, host='0.0.0.0', port=5000)
 
 
 
