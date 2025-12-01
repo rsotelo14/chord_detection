@@ -233,7 +233,7 @@ if __name__ == "__main__":
         parser.add_argument('audio_path', type=str)
         parser.add_argument('--smooth', action='store_true', help='Usar HMM para suavizar predicciones')
         parser.add_argument('--beat-sync', action='store_true', help='Alinear a beats y votar mayoritario por beat/grupo')
-        parser.add_argument('--beat-group', type=int, default=2, help='Cantidad de beats por voto (default: 4)')
+        parser.add_argument('--beat-group', type=int, default=4, help='Cantidad de beats por voto (default: 4)')
         args = parser.parse_args()
 
         audio_path = Path(args.audio_path)

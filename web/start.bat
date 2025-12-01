@@ -18,6 +18,17 @@ REM Activar entorno virtual
 echo 📦 Activando entorno virtual...
 call ..\env\Scripts\activate.bat
 
+REM Cargar variables de entorno desde .env si existe
+if exist ".env" (
+    echo 📋 Cargando variables de entorno desde .env...
+    for /f "tokens=1,2 delims==" %%a in (.env) do (
+        if not "%%a"=="" if not "%%a"=="#" set "%%a=%%b"
+    )
+) else if exist "env.example" (
+    echo ⚠️  Advertencia: No se encontró archivo .env
+    echo    Copia env.example a .env y configura tus credenciales
+)
+
 REM Verificar si Flask está instalado
 python -c "import flask" 2>nul
 if errorlevel 1 (
@@ -41,6 +52,9 @@ echo.
 python app.py
 
 pause
+
+
+
 
 
 

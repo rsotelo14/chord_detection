@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificar Cuenta - Detector de Acordes</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎸 Detector de Acordes</h1>
+            <p class="subtitle">Verifica tu correo electrónico</p>
+        </header>
+
+        <div class="auth-section">
+            <div class="verify-info">
+                <p>Hemos enviado un código de verificación a:</p>
+                <p class="verify-email"><strong>{{ email }}</strong></p>
+                <p class="verify-hint">Por favor ingresa el código que recibiste por correo electrónico.</p>
+            </div>
+
+            <form id="verifyForm" class="auth-form">
+                <input type="hidden" id="email" value="{{ email }}">
+                
+                <div class="form-group">
+                    <label for="code">Código de verificación</label>
+                    <input type="text" id="code" name="code" required autocomplete="off" maxlength="6" pattern="[0-9]{6}" placeholder="000000">
+                    <small class="form-hint">Ingresa el código de 6 dígitos</small>
+                </div>
+
+                <button type="submit" class="auth-btn">Verificar</button>
+            </form>
+
+            <div class="auth-links">
+                <p>¿No recibiste el código? <a href="#" id="resendLink">Reenviar código</a></p>
+                <p><a href="{{ url_for('login') }}">Volver al inicio de sesión</a></p>
+            </div>
+
+            <div class="error-message" id="errorMessage" style="display: none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <p id="errorText"></p>
+            </div>
+
+            <div class="success-message" id="successMessage" style="display: none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+                <p id="successText"></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='auth.js') }}"></script>
+</body>
+</html>
+

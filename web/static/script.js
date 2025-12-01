@@ -11,6 +11,8 @@ const errorMessage = document.getElementById('errorMessage');
 const errorText = document.getElementById('errorText');
 const audioPlayer = document.getElementById('audioPlayer');
 const currentChord = document.getElementById('chordValue');
+const nextChordContainer = document.getElementById('nextChordContainer');
+const nextChordValue = document.getElementById('nextChordValue');
 const timeline = document.getElementById('timeline');
 const resetBtn = document.getElementById('resetBtn');
 
@@ -137,17 +139,30 @@ audioPlayer.addEventListener('timeupdate', () => {
     if (activeChord) {
         currentChord.textContent = formatChord(activeChord.chord);
         
+        // Encontrar el siguiente acorde
+        const activeIndex = currentChords.indexOf(activeChord);
+        const nextChord = currentChords[activeIndex + 1];
+        
+        if (nextChord) {
+            nextChordValue.textContent = formatChord(nextChord.chord);
+            nextChordContainer.style.display = 'flex';
+        } else {
+            nextChordContainer.style.display = 'none';
+        }
+        
         // Resaltar en la línea de tiempo
         const allItems = timeline.querySelectorAll('.chord-item');
         allItems.forEach(item => item.classList.remove('active'));
         
-        const activeIndex = currentChords.indexOf(activeChord);
         const activeItem = timeline.querySelector(`[data-index="${activeIndex}"]`);
         if (activeItem) {
             activeItem.classList.add('active');
             // Scroll automático para mantener visible el acorde activo
             activeItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
+    } else {
+        // Si no hay acorde activo, ocultar el siguiente también
+        nextChordContainer.style.display = 'none';
     }
 });
 
@@ -201,8 +216,10 @@ function resetPlayer() {
     currentFilename = '';
     audioInput.value = '';
     currentChord.textContent = '-';
+    nextChordContainer.style.display = 'none';
     timeline.innerHTML = '';
 }
+
 
 
 

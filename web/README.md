@@ -15,6 +15,27 @@ source env/bin/activate  # En Windows: env\Scripts\activate
 pip install -r web/requirements.txt
 ```
 
+3. Configura las variables de entorno para AWS Cognito:
+
+**Opción recomendada:** Usar archivo `.env`
+```bash
+cd web
+cp env.example .env
+# Edita .env con tus credenciales
+```
+
+**Alternativa:** Variables de entorno del sistema
+```bash
+export AWS_ACCESS_KEY_ID=tu_access_key
+export AWS_SECRET_ACCESS_KEY=tu_secret_key
+export AWS_DEFAULT_REGION=us-east-1
+export COGNITO_CLIENT_ID=tu_client_id  # Opcional
+```
+
+📖 **Para más detalles sobre dónde encontrar cada valor, consulta [CONFIGURACION.md](CONFIGURACION.md)**
+
+⚠️ **Si encuentras errores, consulta [TROUBLESHOOTING.md](TROUBLESHOOTING.md) para soluciones comunes**
+
 ## Uso
 
 1. Desde el directorio `web/`, ejecuta:
@@ -32,18 +53,37 @@ python app.py
 
 ## Características
 
+- 🔐 Autenticación con AWS Cognito (login y registro)
 - ✨ Interfaz moderna y responsive
 - 🎵 Reproductor de audio integrado
 - 🎸 Acordes sincronizados en tiempo real
 - 📊 Línea de tiempo interactiva
 - 🖱️ Drag & drop para subir archivos
-- 🔄 Procesamiento automático con el modelo MLP
+- 🔄 Procesamiento automático con el modelo DNN
+
+## Autenticación
+
+La aplicación requiere autenticación para usar el detector de acordes:
+
+1. **Registro**: Crea una cuenta nueva con tu correo electrónico y contraseña
+2. **Verificación**: Verifica tu correo electrónico con el código que recibirás
+3. **Login**: Inicia sesión con tus credenciales
+4. **Uso**: Una vez autenticado, podrás subir y procesar archivos de audio
+
+### Configuración de AWS Cognito
+
+- **User Pool ID**: `us-east-1_o7y7iPcVz`
+- **Región**: `us-east-1`
+- El Client ID se obtiene automáticamente, pero puede configurarse manualmente con `COGNITO_CLIENT_ID`
 
 ## Limitaciones
 
 - Tamaño máximo de archivo: 50MB
 - Formatos soportados: MP3, WAV, OGG, M4A, FLAC
 - Timeout de procesamiento: 5 minutos
+
+
+
 
 
 

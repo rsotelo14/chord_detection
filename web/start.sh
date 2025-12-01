@@ -19,6 +19,15 @@ fi
 echo "📦 Activando entorno virtual..."
 source ../env/bin/activate
 
+# Cargar variables de entorno desde .env si existe
+if [ -f ".env" ]; then
+    echo "📋 Cargando variables de entorno desde .env..."
+    export $(cat .env | grep -v '^#' | xargs)
+elif [ -f "env.example" ]; then
+    echo "⚠️  Advertencia: No se encontró archivo .env"
+    echo "   Copia env.example a .env y configura tus credenciales"
+fi
+
 # Verificar si Flask está instalado
 if ! python -c "import flask" 2>/dev/null; then
     echo "📥 Instalando dependencias de Flask..."
@@ -39,6 +48,9 @@ echo "🚀 Iniciando servidor en http://localhost:5000"
 echo "   Presiona Ctrl+C para detener el servidor"
 echo ""
 python app.py
+
+
+
 
 
 

@@ -11,6 +11,15 @@
         <header>
             <h1>🎸 Detector de Acordes</h1>
             <p class="subtitle">Sube una canción y descubre sus acordes en tiempo real</p>
+            <div class="auth-header">
+                {% if user_email %}
+                    <span class="user-info">Bienvenido, {{ user_email }}</span>
+                    <button id="logoutBtn" class="logout-btn">Cerrar Sesión</button>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="login-link">Iniciar Sesión</a>
+                    <a href="{{ url_for('register') }}" class="register-link">Registrarse</a>
+                {% endif %}
+            </div>
         </header>
 
         <div class="upload-section" id="uploadSection">
@@ -41,6 +50,12 @@
                 <div class="current-chord" id="currentChord">
                     <span class="chord-label">Acorde actual:</span>
                     <span class="chord-value" id="chordValue">-</span>
+                    <div class="next-chord-container" id="nextChordContainer" style="display: none;">
+                        <svg class="next-chord-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                        <span class="next-chord-value" id="nextChordValue"></span>
+                    </div>
                 </div>
                 
                 <div class="timeline" id="timeline">
@@ -67,6 +82,7 @@
         </div>
     </div>
 
+    <script src="{{ url_for('static', filename='auth.js') }}"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
