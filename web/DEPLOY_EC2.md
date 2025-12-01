@@ -72,25 +72,26 @@ git clone https://github.com/rsotelo14/chord_detection.git
 cd chord_detection/web
 ```
 
-## Paso 6: Crear Entorno Virtual
+## Paso 6: Crear Entorno Virtual en la Raíz
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+cd ~/chord_detection
+python3 -m venv env
+source env/bin/activate
 ```
 
 ## Paso 7: Instalar Dependencias de Python
 
 ```bash
+# Desde la raíz del proyecto (con el entorno virtual activado)
 pip install --upgrade pip
+
+# Instalar dependencias del proyecto principal (TensorFlow, librosa, etc.)
 pip install -r requirements.txt
-```
 
-**Nota:** También necesitarás instalar las dependencias del proyecto principal (si hay modelos o scripts que se importan):
-
-```bash
-cd ..
-pip install -r requirements.txt  # Si existe un requirements.txt en la raíz
+# Instalar dependencias de la aplicación web
+cd web
+pip install -r requirements.txt
 ```
 
 ## Paso 8: Instalar Dependencias del Sistema para Audio (opcional)
@@ -113,6 +114,8 @@ sudo apt install -y build-essential libffi-dev
 cd ~/chord_detection/web
 cp env.example .env
 nano .env  # o usa vi, vim, o tu editor preferido
+
+# Asegúrate de estar en el directorio web antes de continuar
 ```
 
 Edita el archivo `.env` con tus credenciales reales:
@@ -158,7 +161,7 @@ Para probar rápidamente:
 
 ```bash
 cd ~/chord_detection/web
-source venv/bin/activate
+source ../env/bin/activate  # Activar entorno virtual de la raíz
 python app.py
 ```
 
@@ -189,7 +192,7 @@ worker_class = "sync"
 ### Ejecutar con Gunicorn:
 ```bash
 cd ~/chord_detection/web
-source venv/bin/activate
+source ../env/bin/activate  # Activar entorno virtual de la raíz
 gunicorn -c gunicorn_config.py app:app
 ```
 
@@ -211,8 +214,8 @@ After=network.target
 User=ec2-user
 Group=ec2-user
 WorkingDirectory=/home/ec2-user/chord_detection/web
-Environment="PATH=/home/ec2-user/chord_detection/web/venv/bin"
-ExecStart=/home/ec2-user/chord_detection/web/venv/bin/gunicorn -c gunicorn_config.py app:app
+Environment="PATH=/home/ec2-user/chord_detection/env/bin"
+ExecStart=/home/ec2-user/chord_detection/env/bin/gunicorn -c gunicorn_config.py app:app
 Restart=always
 
 [Install]
